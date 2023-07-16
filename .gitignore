@@ -1,3 +1,7 @@
 .DS_Store
 __pycache__/
 classify_image_graph_def.pb
+
+# Ignore .pt and .npz files in the evaluation directory and its subdirectories
+evaluations/**/*.pt
+evaluations/**/*.npz
