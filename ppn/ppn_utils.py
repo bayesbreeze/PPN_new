@@ -22,23 +22,22 @@ def report_metrics_and_save(args, testset, samples):
     np.savez(save_path, samples)
 
 # load testset
-def get_testset_and_mask(args):
+def get_testset_and_mask(args,device="cpu"):
     imgs = np.load(args.testset_path)['all_imgs']
     imgs = imgs[:min(len(imgs), args.num_samples)] # limit sample number
     imgs = th.from_numpy(imgs[:,None,...]).float() # (1000, 1, 240, 240) b c w h
     imgs = imgs / 255.0   # convert to [0,1]
-    mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration))
+    mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration),device=device)
     return imgs, mask
 
-def iter_testset(imgs, args, device):
+def iter_testset(imgs, args):
     num_batches = int(np.ceil(len(imgs) / args.batch_size))
     for batch in range(num_batches):
         current_batch = imgs[batch * args.batch_size:
                             min((batch + 1) * args.batch_size, len(imgs))]
-        current_batch = current_batch.to(device)
         yield current_batch
 
-def get_cartesian_mask(size, n_keep=30):
+def get_cartesian_mask(size, n_keep=30, device="cpu"):
     # shape [Tuple]: (H, W)
     center_fraction = n_keep / 1000
     acceleration = size / n_keep
@@ -47,7 +46,7 @@ def get_cartesian_mask(size, n_keep=30):
     num_low_freqs = int(round(num_cols * center_fraction))
 
     # create the mask
-    mask = th.zeros((num_rows, num_cols), dtype=th.float32)
+    mask = th.zeros((num_rows, num_cols), dtype=th.float32, device=device)
     pad = (num_cols - num_low_freqs + 1) // 2
     mask[:, pad: pad + num_low_freqs] = True
 

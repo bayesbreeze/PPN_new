@@ -27,19 +27,16 @@ class PPN_Diffusion(SpacedDiffusion):
 
 
     @th.no_grad()
-    def ppn_loop(self, model, test_imgs, mask, progress=False):  
+    def ppn_loop(self, model, test_imgs, mask, progress=False, device="cpu"):  
 
         # print(">> [Ablation] type: %s, proj: %s, acc: x%d; parameters: [eta: %d, proj: %d, acc: %d]" 
         #         % (["PPN", "DDIM", "DDPM"][eta+1], ["x0", "x1"][proj], acc, eta, proj, acc))
 
-        shape = test_imgs.shape
-        device = next(model.parameters()).device
-        img = th.randn(*shape, device=device)
-        
-        _indices = list(range(self.num_timesteps))[::-1]
-        
+        img = th.randn_like(test_imgs, device=device)
+        test_imgs = test_imgs.to(device)
         known = to_space(test_imgs) # in kspace
 
+        _indices = list(range(self.num_timesteps))[::-1]
         if progress:
             from tqdm.auto import tqdm
             indices = tqdm(_indices)

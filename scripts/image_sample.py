@@ -46,10 +46,9 @@ def main():
 
     logger.log("sampling...")
     all_samples = []
-    all_testset, mask = ppn_utils.get_testset_and_mask(args)
-    mask.to(device)
-    for test_batch in ppn_utils.iter_testset(all_testset, args, device):
-        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress)
+    all_testset, mask = ppn_utils.get_testset_and_mask(args, device)
+    for test_batch in ppn_utils.iter_testset(all_testset, args):
+        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress, device=device)
         all_samples.extend([sample.cpu()])
 
     logger.log("sampling complete")
