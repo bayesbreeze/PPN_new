@@ -1,14 +1,49 @@
 # this file is adapted from https://github.com/yang-song/score_inverse_problems/blob/main/cs.py
-# import numpy as np
+import numpy as np
 import torch as th
+import piq
+from guided_diffusion import dist_util, logger
 
-def get_cartesian_mask(shape, n_keep=30):
+
+# using pytorch tensor
+def report_metrics_and_save(args, testset, samples):
+    samples = th.clamp(samples, 0., 1.)
+    psnr = np.array([piq.psnr(smp[None, ...], tgt[None, ...], data_range=1.).item() 
+                for tgt, smp in zip(testset, samples)])
+    ssim = np.array([piq.ssim(smp[None, ...], tgt[None, ...], data_range=1.).item() 
+                for tgt, smp in zip(testset, samples)])
+    report = "samples#%d_x%d_step%d_psnr_%.4f_%.4f_ssim_%.4f_%.4f"%(
+        args.num_samples, args.acceleration, args.num_timesteps,
+        psnr.mean(), psnr.std(), ssim.mean(), ssim.std())
+    logger.log("report: ", report)
+
+    save_path = "%s/%s.npz"%(logger.get_dir(), report)
+    logger.log("saving to: ", save_path)
+    np.savez(save_path, samples)
+
+# load testset
+def get_testset_and_mask(args):
+    imgs = np.load(args.testset_path)['all_imgs']
+    imgs = imgs[:min(len(imgs), args.num_samples)] # limit sample number
+    imgs = th.from_numpy(imgs[:,None,...]).float() # (1000, 1, 240, 240) b c w h
+    imgs = imgs / 255.0   # convert to [0,1]
+    mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration))
+    return imgs, mask
+
+def iter_testset(imgs, args, device):
+    num_batches = int(np.ceil(len(imgs) / args.batch_size))
+    for batch in range(num_batches):
+        current_batch = imgs[batch * args.batch_size:
+                            min((batch + 1) * args.batch_size, len(imgs))]
+        current_batch = current_batch.to(device)
+        yield current_batch
+
+def get_cartesian_mask(size, n_keep=30):
     # shape [Tuple]: (H, W)
-    size = shape[0]
     center_fraction = n_keep / 1000
     acceleration = size / n_keep
 
-    num_rows, num_cols = shape[0], shape[1]
+    num_rows, num_cols = size, size
     num_low_freqs = int(round(num_cols * center_fraction))
 
     # create the mask

@@ -1,0 +1,16 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Sampling",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.image_sample",
+            "justMyCode": true,
+            "args": ["--work_dir", "/Users/John/workspace/DMs_Medical/PPN_new/working", "--model_path", "/Users/John/workspace/DMs_Medical/PPN_new/evaluations/BraTS/model_2.02m.pt", "--testset_path", "/Users/John/workspace/DMs_Medical/PPN_new/evaluations/BraTS/BraTS.npz", "--attention_resolutions", "30", "--class_cond", "False", "--learn_sigma", "True", "--noise_schedule", "cosine", "--image_size", "240", "--num_channels", "32", "--num_res_blocks", "3", "--channel_mult", "1,2,2,4,4", "--use_ddim", "True", "--num_samples", "5", "--batch_size", "2", "--timestep_respacing", "ddim2", "--acceleration", "4", "--show_progress", "True"]
+        }
+    ]
+}

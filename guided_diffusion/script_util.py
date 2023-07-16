@@ -9,6 +9,8 @@ from ppn.ppn_diffusion import PPN_Diffusion
 NUM_CLASSES = 1000
 
 
+
+
 def diffusion_defaults():
     """
     Defaults for image and classifier training.

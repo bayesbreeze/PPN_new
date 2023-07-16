@@ -12,83 +12,51 @@ import torch.distributed as dist
 
 from guided_diffusion import dist_util, logger
 from guided_diffusion.script_util import (
-    NUM_CLASSES,
-    model_and_diffusion_defaults,
-    create_model_and_diffusion,
-    add_dict_to_argparser,
     args_to_dict,
+    create_model_and_diffusion,
+    model_and_diffusion_defaults,
+    add_dict_to_argparser
 )
+import ppn.ppn_utils as ppn_utils
+from ppn.ppn_diffusion import *
 
-
-def main():
-    args = create_argparser().parse_args()
-
-    dist_util.setup_dist()
-    logger.configure(args.work_dir)
-
-    logger.log("creating model and diffusion...")
+def load_model(args, device):
     model, diffusion = create_model_and_diffusion(
         **args_to_dict(args, model_and_diffusion_defaults().keys())
     )
     model.load_state_dict(
         dist_util.load_state_dict(args.model_path, map_location="cpu")
     )
-    model.to(dist_util.dev())
+    model.to(device)
     if args.use_fp16:
         model.convert_to_fp16()
     model.eval()
+    return model, diffusion
+    
+
+def main():
+    # init
+    device = dist_util.dev()
+    args = create_argparser().parse_args()
+    dist_util.setup_dist()
+    logger.configure(args.work_dir)
+
+    logger.log("creating model and diffusion...")
+    model, diffusion = load_model(args, device)
 
     logger.log("sampling...")
-    all_images = []
-    all_labels = []
-    while len(all_images) * args.batch_size < args.num_samples:
-        model_kwargs = {}
-        if args.class_cond:
-            classes = th.randint(
-                low=0, high=NUM_CLASSES, size=(args.batch_size,), device=dist_util.dev()
-            )
-            model_kwargs["y"] = classes
-        sample_fn = (
-            diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
-        )
-        sample = sample_fn(
-            model,
-            (args.batch_size, 1, args.image_size, args.image_size), # <== mri image only have 1 channel
-            clip_denoised=args.clip_denoised,
-            model_kwargs=model_kwargs,
-            progress=args.show_progress
-        )
-        sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
-        sample = sample.permute(0, 2, 3, 1)
-        sample = sample.contiguous()
+    all_samples = []
+    all_testset, mask = ppn_utils.get_testset_and_mask(args)
+    mask.to(device)
+    for test_batch in ppn_utils.iter_testset(all_testset, args, device):
+        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress)
+        all_samples.extend([sample.cpu()])
 
-        gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
-        dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
-        all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
-        if args.class_cond:
-            gathered_labels = [
-                th.zeros_like(classes) for _ in range(dist.get_world_size())
-            ]
-            dist.all_gather(gathered_labels, classes)
-            all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
-        logger.log(f"created {len(all_images) * args.batch_size} samples")
-
-    arr = np.concatenate(all_images, axis=0)
-    arr = arr[: args.num_samples]
-    if args.class_cond:
-        label_arr = np.concatenate(all_labels, axis=0)
-        label_arr = label_arr[: args.num_samples]
-    if dist.get_rank() == 0:
-        shape_str = "x".join([str(x) for x in arr.shape])
-        out_path = os.path.join(logger.get_dir(), f"samples_{shape_str}.npz")
-        logger.log(f"saving to {out_path}")
-        if args.class_cond:
-            np.savez(out_path, arr, label_arr)
-        else:
-            np.savez(out_path, arr)
-
-    dist.barrier()
     logger.log("sampling complete")
+    all_samples = th.cat(all_samples, dim=0)  #np.concatenate(all_samples, axis=0)
+
+    args.num_timesteps = diffusion.num_timesteps
+    ppn_utils.report_metrics_and_save(args, all_testset, all_samples) # psnr and ssim
 
 
 def create_argparser():
@@ -99,7 +67,10 @@ def create_argparser():
         use_ddim=False,
         model_path="",
         work_dir="",
+        testset_path="",
+        acceleration=4,
         show_progress=False,
+        num_timesteps=0
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

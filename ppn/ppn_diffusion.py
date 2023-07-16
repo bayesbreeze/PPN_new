@@ -3,20 +3,20 @@ from guided_diffusion.gaussian_diffusion import _extract_into_tensor
 from .ppn_utils import *
 import json
 
-#"{'step_curve': '.5,.5,.5,.5', 'gamma': 0}"
-class CommonParam:
-    def __init__(self, json_str):
-        self.data = json.loads(json_str)
+# #"{'step_curve': '.5,.5,.5,.5', 'gamma': 0}"
+# class CommonParam:
+#     def __init__(self, json_str):
+#         self.data = json.loads(json_str)
 
-    @property
-    def step_curve(self):  # https://cubic-bezier.com/#.39,0,.66,.98
-        if isinstance(self.data['step_curve'], str):
-            self.data['step_curve']=tuple(float(i) for i in self.data['step_curve'].split(','))
-        return self.data['step_curve']
+#     @property
+#     def step_curve(self):  # https://cubic-bezier.com/#.39,0,.66,.98
+#         if isinstance(self.data['step_curve'], str):
+#             self.data['step_curve']=tuple(float(i) for i in self.data['step_curve'].split(','))
+#         return self.data['step_curve']
 
-    @property
-    def gamma(self):  
-        return self.data['gamma']
+#     @property
+#     def gamma(self):  
+#         return self.data['gamma']
 
 class PPN_Diffusion(SpacedDiffusion):
 
@@ -27,30 +27,20 @@ class PPN_Diffusion(SpacedDiffusion):
 
 
     @th.no_grad()
-    def ppn_loop(self, model,test_imgs, 
-            eta,   # -1: PPN, 0: DDIM, 1: DDPM
-            proj,  # 0: x_0, 1: x_t
-            acc,   # [4, 8, 16, 24]
-            show_progress
-        ):  
-        assert eta in [-1, 0, 1], "invalid eta value: %s; shoule be -1: PPN, 0: DDIM, 1: DDPM" % eta
-        assert proj in [0, 1], "invalid projection value: %s; should be 0 for x_0, 1 for x_t" % proj
-        assert acc in [4, 8, 16, 24], "inavlid acceleration avlue: %s; shoule be [4, 8, 16]" % acc
+    def ppn_loop(self, model, test_imgs, mask, progress=False):  
 
-        print(">> [Ablation] type: %s, proj: %s, acc: x%d; parameters: [eta: %d, proj: %d, acc: %d]" 
-                % (["PPN", "DDIM", "DDPM"][eta+1], ["x0", "x1"][proj], acc, eta, proj, acc))
+        # print(">> [Ablation] type: %s, proj: %s, acc: x%d; parameters: [eta: %d, proj: %d, acc: %d]" 
+        #         % (["PPN", "DDIM", "DDPM"][eta+1], ["x0", "x1"][proj], acc, eta, proj, acc))
 
         shape = test_imgs.shape
-        assert isinstance(shape, (tuple, list))
         device = next(model.parameters()).device
         img = th.randn(*shape, device=device)
         
         _indices = list(range(self.num_timesteps))[::-1]
+        
+        known = to_space(test_imgs) # in kspace
 
-        mask = get_cartesian_mask(shape[2:], int(shape[2]/acc)).to(device)
-        known = to_space(test_imgs).to(device)
-
-        if show_progress:
+        if progress:
             from tqdm.auto import tqdm
             indices = tqdm(_indices)
 
@@ -60,36 +50,33 @@ class PPN_Diffusion(SpacedDiffusion):
                 img,
                 i,
                 mask,
-                known,
-                eta,
-                proj
+                known
             ) 
         return img, self.num_timesteps
 
-    def ppn(self,
-        model, x, t, mask, known,
-        eta, # -1: PPN, 0: DDIM, 1: DDPM
-        proj): # 0: x_0, 1: x_t
+    def ppn(self, model, x, t, mask, known): # 0: x_0, 1: x_t
 
         ts = th.tensor([t]  * x.shape[0], device=x.device)
 
         def projector(x):
             x_space = to_space(x)
-            if proj==0: # project on x_0
-                x_space = merge_known_with_mask(x_space, known, mask)
-            else: # project on x_t
-                alpha = _extract_into_tensor(self.sqrt_alphas_cumprod_prev, ts, x.shape)
-                beta = _extract_into_tensor(self.sqrt_one_minus_alphas_cumprod_prev, ts, x.shape)
-                known_noisy = alpha * known + beta * to_space(th.rand_like(known))
-                x_space = merge_known_with_mask(x_space, known_noisy, mask)
-
+            x_space = merge_known_with_mask(x_space, known, mask)
             return from_space(x_space)
 
-        return self._ppn_sample(model, x, ts, proj=proj, projector=projector)
+        return self._ppn_sample(model, x, ts, projector=projector)
 
-    def _ppn_sample(self, model, x, t, proj, projector):
+    def _ppn_sample(self, model, x, t, projector):
         x_0 = self.p_mean_variance(model, x, t)["pred_xstart"] # predictor
         x_0_hat = projector(x_0)
         x = self.noisor2(x_0_hat, t, x_0)  # new
         return x
 
+
+    def noisor2(self, x_0_hat, t, x_0): # alg 1
+        recip_snr = _extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_0.shape)
+        x_0_hat += th.randn_like(x_0)*recip_snr**2  # noise version  
+        s1 = (x_0_hat-x_0)/recip_snr 
+
+        alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x_0.shape)
+        x = th.sqrt(alpha_bar_prev) * x_0_hat + th.sqrt(1-alpha_bar_prev)* s1
+        return x
