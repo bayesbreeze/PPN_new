@@ -1,6 +1,6 @@
-from .respace import *
-from .pnp_utils import *
-from .gaussian_diffusion import _extract_into_tensor
+from guided_diffusion.respace import *
+from guided_diffusion.gaussian_diffusion import _extract_into_tensor
+from .ppn_utils import *
 import json
 
 #"{'step_curve': '.5,.5,.5,.5', 'gamma': 0}"
@@ -21,8 +21,8 @@ class CommonParam:
 class PPN_Diffusion(SpacedDiffusion):
 
     def __init__(self, use_timesteps, **kwargs):
-        self.common_param = kwargs.pop('common_param')
-        self.gamma = self.common_param.gamma
+        # self.common_param = kwargs.pop('common_param')
+        # self.gamma = self.common_param.gamma
         super().__init__(use_timesteps, **kwargs)
 
 
