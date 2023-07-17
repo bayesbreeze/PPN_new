@@ -147,6 +147,7 @@ class CSVOutputFormat(KVWriter):
         self.file.close()
 
 
+
 class TensorBoardOutputFormat(KVWriter):
     """
     Dumps key/value pairs into TensorBoard's numeric format.
@@ -154,38 +155,28 @@ class TensorBoardOutputFormat(KVWriter):
 
     def __init__(self, dir):
         os.makedirs(dir, exist_ok=True)
-        self.dir = dir
-        self.step = 1
-        prefix = "events"
-        path = osp.join(osp.abspath(dir), prefix)
-        import tensorflow as tf
-        from tensorflow.python import pywrap_tensorflow
-        from tensorflow.core.util import event_pb2
-        from tensorflow.python.util import compat
+        from torch.utils.tensorboard import SummaryWriter
 
-        self.tf = tf
-        self.event_pb2 = event_pb2
-        self.pywrap_tensorflow = pywrap_tensorflow
-        self.writer = pywrap_tensorflow.EventsWriter(compat.as_bytes(path))
+        self.train_writer = SummaryWriter(os.path.join(osp.abspath(dir), 'train'))
+        self.eval_writer = SummaryWriter(os.path.join(osp.abspath(dir), 'eval'))
+
 
     def writekvs(self, kvs):
-        def summary_val(k, v):
-            kwargs = {"tag": k, "simple_value": float(v)}
-            return self.tf.Summary.Value(**kwargs)
+        self.train_writer.add_scalar('loss', kvs["loss"], kvs["step"])
+        self.train_writer.add_scalar('mse', kvs["mse"], kvs["step"])
+        self.train_writer.flush()
 
-        summary = self.tf.Summary(value=[summary_val(k, v) for k, v in kvs.items()])
-        event = self.event_pb2.Event(wall_time=time.time(), summary=summary)
-        event.step = (
-            self.step
-        )  # is there any reason why you'd want to specify the step?
-        self.writer.WriteEvent(event)
-        self.writer.Flush()
-        self.step += 1
+        self.eval_writer.add_scalar('loss', kvs["loss_eval"], kvs["step"])
+        self.eval_writer.add_scalar('mse', kvs["mse_eval"], kvs["step"]) 
+        self.eval_writer.flush()
 
     def close(self):
-        if self.writer:
-            self.writer.Close()
-            self.writer = None
+        if self.train_writer:
+            self.train_writer.Close()
+            self.train_writer = None
+        if self.eval_writer:
+            self.eval_writer.Close()
+            self.eval_writer = None
 
 
 def make_output_format(format, ev_dir, log_suffix=""):

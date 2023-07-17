@@ -24,11 +24,10 @@ def get_datasets(dataset_name, batch_size):
 
     val, info= tfds.load(dataset_name, split='val[:30%]', shuffle_files=True, 
                         as_supervised=False, with_info=True) # 1662 = 5543 * 0.3
-    # val = val.map(prepare_image)
+    val = val.map(prepare_image)
     val = val.repeat().shuffle(512)
     val = val.batch(batch_size, drop_remainder=True).prefetch(-1)
     print("[dataset] validate number: %d" % (info.splits['val'].num_examples * 0.3))
     
     return data_wrapper(train), data_wrapper(val)
-
 

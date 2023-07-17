@@ -25,7 +25,8 @@ class TrainLoop:
         *,
         model,
         diffusion,
-        data,
+        data_train,
+        data_val,
         batch_size,
         microbatch,
         lr,
@@ -41,7 +42,8 @@ class TrainLoop:
     ):
         self.model = model
         self.diffusion = diffusion
-        self.data = data
+        self.data_train = data_train
+        self.data_val = data_val
         self.batch_size = batch_size
         self.microbatch = microbatch if microbatch > 0 else batch_size
         self.lr = lr
@@ -155,9 +157,10 @@ class TrainLoop:
             not self.lr_anneal_steps
             or self.step + self.resume_step < self.lr_anneal_steps
         ):
-            batch, cond = next(self.data)
+            batch, cond = next(self.data_train)
             self.run_step(batch, cond)
             if self.step % self.log_interval == 0:
+                self.log_validation()
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
                 self.save()
@@ -169,7 +172,31 @@ class TrainLoop:
         if (self.step - 1) % self.save_interval != 0:
             self.save()
 
+    def log_validation(self):
+        self.ddp_model.eval()
+        batch, cond = next(self.data_val)
+        t, weights = self.schedule_sampler.sample(batch.shape[0], dist_util.dev())
+        compute_losses = functools.partial(
+            self.diffusion.training_losses,
+            self.ddp_model,
+            batch,
+            t,
+            model_kwargs=cond,
+        )
+
+        if not self.use_ddp:
+            losses = compute_losses()
+        else:
+            with self.ddp_model.no_sync():
+                losses = compute_losses()
+
+        for key, values in losses.items():
+            logger.logkv_mean(key+"_eval", values.mean().item())
+
+        
+
     def run_step(self, batch, cond):
+        self.ddp_model.train()
         self.forward_backward(batch, cond)
         took_step = self.mp_trainer.optimize(self.opt)
         if took_step:

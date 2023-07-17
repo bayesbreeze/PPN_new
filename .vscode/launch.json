@@ -54,7 +54,7 @@
             "module": "scripts.image_train",
             "justMyCode": true,
             "args": [
-                "--work_dir", "/Users/John/workspace/DMs_Medical/PPN_new/working/training", "--dataset_name", "fastmri_knee", "--lr", "1e-4", "--image_size", "320", "--channel_mult", "1,2,2,4,4,4", "--attention_resolutions", "20,10", "--num_channels", "32", "--num_heads", "4", "--num_res_blocks", "2", "--resblock_updown", "True", "--use_fp16", "False", "--use_scale_shift_norm", "True", "--noise_schedule", "cosine", "--learn_sigma", "True", "--diffusion_steps", "1000", "--class_cond", "False", "--log_interval", "100", "--save_interval", "10000", "--batch_size", "2"
+                "--work_dir", "/Users/John/workspace/DMs_Medical/PPN_new/working/training", "--dataset_name", "fastmri_knee", "--lr", "1e-4", "--image_size", "320", "--channel_mult", "1,2,2,4,4,4", "--attention_resolutions", "20,10", "--num_channels", "32", "--num_heads", "4", "--num_res_blocks", "2", "--resblock_updown", "True", "--use_fp16", "False", "--use_scale_shift_norm", "True", "--noise_schedule", "cosine", "--learn_sigma", "True", "--diffusion_steps", "1000", "--class_cond", "False", "--log_interval", "5", "--save_interval", "10000", "--batch_size", "2"
             ]
         },
     ]

@@ -20,7 +20,7 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure(args.work_dir)
+    logger.configure(args.work_dir, ["stdout", "tensorboard"])
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
@@ -42,7 +42,8 @@ def main():
     TrainLoop(
         model=model,
         diffusion=diffusion,
-        data=train_ds,
+        data_train=train_ds,
+        data_val=val_ds,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
         lr=args.lr,
