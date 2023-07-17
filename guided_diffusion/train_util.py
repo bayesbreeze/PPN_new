@@ -12,6 +12,7 @@ from . import dist_util, logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from .resample import LossAwareSampler, UniformSampler
+import ppn.ppn_train_utils as train_utils
 
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
@@ -175,6 +176,8 @@ class TrainLoop:
     def log_validation(self):
         self.ddp_model.eval()
         batch, cond = next(self.data_val)
+        batch = batch.to(dist_util.dev())
+        cond = {k: v.to(dist_util.dev()) for k, v in cond.items()}
         t, weights = self.schedule_sampler.sample(batch.shape[0], dist_util.dev())
         compute_losses = functools.partial(
             self.diffusion.training_losses,
@@ -268,6 +271,7 @@ class TrainLoop:
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
+        train_utils.keep_last_n_checkpoints(get_blob_logdir(), 3-1) # keep last 5 checkpionts
         save_checkpoint(0, self.mp_trainer.master_params)
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)
@@ -280,7 +284,6 @@ class TrainLoop:
                 th.save(self.opt.state_dict(), f)
 
         dist.barrier()
-
 
 def parse_resume_step_from_filename(filename):
     """
@@ -326,3 +329,5 @@ def log_loss_dict(diffusion, ts, losses):
         for sub_t, sub_loss in zip(ts.cpu().numpy(), values.detach().cpu().numpy()):
             quartile = int(4 * sub_t / diffusion.num_timesteps)
             logger.logkv_mean(f"{key}_q{quartile}", sub_loss)
+
+

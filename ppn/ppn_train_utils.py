@@ -1,3 +1,5 @@
+import os
+import re
 import tensorflow_datasets as tfds
 import tensorflow as tf
 import torch
@@ -31,3 +33,29 @@ def get_datasets(dataset_name, batch_size):
     
     return data_wrapper(train), data_wrapper(val)
 
+
+# def create_files(dir, n):
+#     for fn in os.listdir(dir):
+#         if fn.endswith('.pt'):
+#             os.remove(os.path.join(dir, fn))
+
+#     for i in range(1,n+1):
+#         files = ["ema_0.9999_%d.pt", "model%d.pt", "opt%d.pt"]
+#         for f in files:
+#             with open(os.path.join(dir, f%(i*10000)), "a"):
+#                 pass
+
+def keep_last_n_checkpoints(dir, n):
+    # Lists to hold each type of checkpoint file
+    file_dict={}
+    regex = re.compile("[^\d]+(\d+)\.pt")
+    for f in os.listdir(dir):
+        match = regex.search(f)
+        if match:
+            file_dict.setdefault(int(match.group(1)), []).append(f)
+
+    sorted_files = sorted(file_dict.items())
+    while len(sorted_files) > n:
+        files_to_remove = sorted_files.pop(0)
+        for f in files_to_remove[1]:
+            os.remove(os.path.join(dir, f))
