@@ -20,7 +20,7 @@ def main():
     args = create_argparser().parse_args()
 
     dist_util.setup_dist()
-    logger.configure()
+    logger.configure(args.work_dir)
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
@@ -30,18 +30,19 @@ def main():
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     logger.log("creating data loader...")
-    data = load_data(
-        data_dir=args.data_dir,
+    train_ds, val_ds = load_data(
+        dataset_name=args.dataset_name,
         batch_size=args.batch_size,
         image_size=args.image_size,
         class_cond=args.class_cond,
     )
 
+
     logger.log("training...")
     TrainLoop(
         model=model,
         diffusion=diffusion,
-        data=data,
+        data=train_ds,
         batch_size=args.batch_size,
         microbatch=args.microbatch,
         lr=args.lr,
@@ -72,6 +73,8 @@ def create_argparser():
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
+        work_dir="",
+        dataset_name=""
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

@@ -3,10 +3,8 @@ __pycache__/
 classify_image_graph_def.pb
 
 # Ignore .pt and .npz files in the evaluation directory and its subdirectories
-evaluations/**/*.pt
+evaluations/**/*.pt 
 evaluations/**/*.npz
 
 # ignore content in working
-working/**/*.txt
-working/**/*.csv
-working/**/*.npz
+working/*
