@@ -34,6 +34,7 @@ class TrainLoop:
         ema_rate,
         log_interval,
         save_interval,
+        keep_checkpoint_num,
         resume_checkpoint,
         use_fp16=False,
         fp16_scale_growth=1e-3,
@@ -55,13 +56,13 @@ class TrainLoop:
         )
         self.log_interval = log_interval
         self.save_interval = save_interval
+        self.keep_checkpoint_num = max(1,keep_checkpoint_num) 
         self.resume_checkpoint = resume_checkpoint
         self.use_fp16 = use_fp16
         self.fp16_scale_growth = fp16_scale_growth
         self.schedule_sampler = schedule_sampler or UniformSampler(diffusion)
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
-
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size * dist.get_world_size()
@@ -271,7 +272,7 @@ class TrainLoop:
                 with bf.BlobFile(bf.join(get_blob_logdir(), filename), "wb") as f:
                     th.save(state_dict, f)
 
-        train_utils.keep_last_n_checkpoints(get_blob_logdir(), 3-1) # keep last 5 checkpionts
+        train_utils.keep_last_n_checkpoints(get_blob_logdir(), self.keep_checkpoint_num-1) # keep last 5 checkpionts
         save_checkpoint(0, self.mp_trainer.master_params)
         for rate, params in zip(self.ema_rate, self.ema_params):
             save_checkpoint(rate, params)

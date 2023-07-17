@@ -50,6 +50,7 @@ def main():
         ema_rate=args.ema_rate,
         log_interval=args.log_interval,
         save_interval=args.save_interval,
+        keep_checkpoint_num=args.keep_checkpoint_num,
         resume_checkpoint=args.resume_checkpoint,
         use_fp16=args.use_fp16,
         fp16_scale_growth=args.fp16_scale_growth,
@@ -75,7 +76,8 @@ def create_argparser():
         use_fp16=False,
         fp16_scale_growth=1e-3,
         work_dir="",
-        dataset_name=""
+        dataset_name="",
+        keep_checkpoint_num=5
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
