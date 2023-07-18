@@ -161,9 +161,9 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
     def __init__(self, dir):
         os.makedirs(dir, exist_ok=True)
         from torch.utils.tensorboard import SummaryWriter
-
-        self.train_writer = SummaryWriter(os.path.join(osp.abspath(dir), 'train'))
-        self.eval_writer = SummaryWriter(os.path.join(osp.abspath(dir), 'eval'))
+        now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+        self.train_writer = SummaryWriter(os.path.join(osp.abspath(dir), "train_%s"%now_str))
+        self.eval_writer = SummaryWriter(os.path.join(osp.abspath(dir), "eval_%s"%now_str))
 
 
     def writekvs(self, kvs):

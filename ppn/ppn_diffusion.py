@@ -1,6 +1,6 @@
 from guided_diffusion.respace import *
 from guided_diffusion.gaussian_diffusion import _extract_into_tensor
-from .ppn_utils import *
+from .ppn_sample_utils import *
 import json
 
 # #"{'step_curve': '.5,.5,.5,.5', 'gamma': 0}"
