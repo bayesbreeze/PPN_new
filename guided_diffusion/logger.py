@@ -34,7 +34,7 @@ class SeqWriter(object):
         raise NotImplementedError
 
 class ImgWriter(object): # used to add snapshots
-    def writeImgs(self, imgs):
+    def writeImgs(self, imgs, step):
         raise NotImplementedError
 
 
@@ -175,10 +175,10 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         self.eval_writer.add_scalar('mse', kvs["mse_eval"], kvs["step"]) 
         self.eval_writer.flush()
 
-    def writeImgs(self, imgs):
+    def writeImgs(self, imgs, step):
         alls = [img[0] for img in imgs]
         img_grid = torchvision.utils.make_grid(alls)
-        self.train_writer.add_image('random samples', img_grid)
+        self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
 
     def close(self):
@@ -227,8 +227,8 @@ def logkv_mean(key, val):
     get_current().logkv_mean(key, val)
 
 
-def log_snapshot(samples):
-    get_current().log_imgs(samples)
+def log_snapshot(samples, step):
+    get_current().log_imgs(samples, step)
 
 def logkvs(d):
     """
@@ -357,10 +357,10 @@ class Logger(object):
         self.name2val[key] = oldval * cnt / (cnt + 1) + val / (cnt + 1)
         self.name2cnt[key] = cnt + 1
 
-    def log_imgs(self, imgs):
+    def log_imgs(self, imgs, step):
         for fmt in self.output_formats:
             if isinstance(fmt, ImgWriter):
-                fmt.writeImgs(imgs)
+                fmt.writeImgs(imgs, step)
 
     def dumpkvs(self):
         if self.comm is None:
