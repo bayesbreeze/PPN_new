@@ -176,8 +176,7 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         self.eval_writer.flush()
 
     def writeImgs(self, imgs, step):
-        alls = [img[0] for img in imgs]
-        img_grid = torchvision.utils.make_grid(alls)
+        img_grid = torchvision.utils.make_grid(imgs) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
 
