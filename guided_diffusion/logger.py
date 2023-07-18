@@ -14,6 +14,7 @@ import tempfile
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager
+import torchvision
 
 DEBUG = 10
 INFO = 20
@@ -30,6 +31,10 @@ class KVWriter(object):
 
 class SeqWriter(object):
     def writeseq(self, seq):
+        raise NotImplementedError
+
+class ImgWriter(object): # used to add snapshots
+    def writeImgs(self, imgs):
         raise NotImplementedError
 
 
@@ -148,7 +153,7 @@ class CSVOutputFormat(KVWriter):
 
 
 
-class TensorBoardOutputFormat(KVWriter):
+class TensorBoardOutputFormat(KVWriter, ImgWriter):
     """
     Dumps key/value pairs into TensorBoard's numeric format.
     """
@@ -169,6 +174,12 @@ class TensorBoardOutputFormat(KVWriter):
         self.eval_writer.add_scalar('loss', kvs["loss_eval"], kvs["step"])
         self.eval_writer.add_scalar('mse', kvs["mse_eval"], kvs["step"]) 
         self.eval_writer.flush()
+
+    def writeImgs(self, imgs):
+        alls = [img[0] for img in imgs]
+        img_grid = torchvision.utils.make_grid(alls)
+        self.train_writer.add_image('random samples', img_grid)
+        self.train_writer.flush()
 
     def close(self):
         if self.train_writer:
@@ -215,6 +226,9 @@ def logkv_mean(key, val):
     """
     get_current().logkv_mean(key, val)
 
+
+def log_snapshot(samples):
+    get_current().log_imgs(samples)
 
 def logkvs(d):
     """
@@ -342,6 +356,11 @@ class Logger(object):
         oldval, cnt = self.name2val[key], self.name2cnt[key]
         self.name2val[key] = oldval * cnt / (cnt + 1) + val / (cnt + 1)
         self.name2cnt[key] = cnt + 1
+
+    def log_imgs(self, imgs):
+        for fmt in self.output_formats:
+            if isinstance(fmt, ImgWriter):
+                fmt.writeImgs(imgs)
 
     def dumpkvs(self):
         if self.comm is None:

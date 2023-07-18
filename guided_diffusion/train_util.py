@@ -41,6 +41,7 @@ class TrainLoop:
         schedule_sampler=None,
         weight_decay=0.0,
         lr_anneal_steps=0,
+        snapshot_number=4,  # used to save snapshot of sampling during training
     ):
         self.model = model
         self.diffusion = diffusion
@@ -63,6 +64,7 @@ class TrainLoop:
         self.schedule_sampler = schedule_sampler or UniformSampler(diffusion)
         self.weight_decay = weight_decay
         self.lr_anneal_steps = lr_anneal_steps
+        self.snapshot_number = snapshot_number
         self.step = 0
         self.resume_step = 0
         self.global_batch = self.batch_size * dist.get_world_size()
@@ -154,6 +156,17 @@ class TrainLoop:
             )
             self.opt.load_state_dict(state_dict)
 
+    @th.no_grad()
+    def log_randon_samples(self, shape):
+        self.ddp_model.eval()
+        # Set the random seed
+        g = th.Generator()
+        g.manual_seed(0)
+        noise = th.randn(*shape, generator=g, device=dist_util.dev())
+        samples = self.diffusion.p_sample_loop(self.ddp_model, shape, noise) #[4, 1, 320, 320]
+        logger.log_snapshot(samples)
+
+        
     def run_loop(self):
         while (
             not self.lr_anneal_steps
@@ -166,6 +179,7 @@ class TrainLoop:
                 logger.dumpkvs()
             if self.step % self.save_interval == 0:
                 self.save()
+                self.log_randon_samples((self.snapshot_number,) + batch.shape[1:]) # save to tensorboard
                 # Run for a finite amount of time in integration tests.
                 if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
                     return

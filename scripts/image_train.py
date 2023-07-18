@@ -57,6 +57,7 @@ def main():
         schedule_sampler=schedule_sampler,
         weight_decay=args.weight_decay,
         lr_anneal_steps=args.lr_anneal_steps,
+        snapshot_number=args.snapshot_num
     ).run_loop()
 
 
@@ -77,7 +78,8 @@ def create_argparser():
         fp16_scale_growth=1e-3,
         work_dir="",
         dataset_name="",
-        keep_checkpoint_num=5
+        keep_checkpoint_num=5,
+        snapshot_num=4  # the number of sampling during training
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
