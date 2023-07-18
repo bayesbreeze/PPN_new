@@ -162,7 +162,7 @@ class TrainLoop:
         # Set the random seed
         g = th.Generator()
         g.manual_seed(0)
-        noise = th.randn(*shape, generator=g, device=dist_util.dev())
+        noise = th.randn(*shape, generator=g).to(dist_util.dev())
         samples = self.diffusion.p_sample_loop(self.ddp_model, shape, noise) #[4, 1, 320, 320]
         logger.log_snapshot(samples)
 
