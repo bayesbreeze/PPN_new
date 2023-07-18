@@ -89,13 +89,38 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
 # import matplotlib.pyplot as plt
 
-# ds, info = tfds.load('fastmri_knee', split='train', shuffle_files=True, 
-#                     as_supervised=False, with_info=True)
-# fig, axes = plt.subplots(nrows=3, ncols=3)
-# for img,axe in zip(tfds.as_numpy(ds.take(9)), axes.flatten()):
-#     axe.imshow(img['image'], cmap='gray')
+# ds = tfds.load('fastmri_knee', split='val[:2%]', shuffle_files=True, 
+#                     as_supervised=False, with_info=False, batch_size=-1)
+# d=tfds.as_numpy(ds)['image']
+# for (i,img) in enumerate(d):
+#     print(i, img.shape)
+#     plt.imsave("temp2/img%d.jpg"%i, img[...,0], cmap="gray")
+
+# fig, axes = plt.subplots(nrows=4, ncols=5)
+# for img,axe in zip(ss, axes.flatten()):
+#     axe.imshow(img, cmap='gray')
 #     axe.axis('off')
 # plt.tight_layout()
-# # plt.show()
-# plt.savefig("ttt.jpg")
+# plt.show()
+# # plt.savefig("ttt.jpg")
 # plt.close()
+
+
+
+# ## ================ generate the test set from validate set ===================
+
+# import numpy as np
+# evalset = tfds.load("fastmri_knee", split='val[30%:]', shuffle_files=True, as_supervised=False)
+# evalset = evalset.shuffle(512)
+# rand100 = tfds.as_numpy(evalset.take(1000))
+# testset = np.array([img['image'][...,0] for img in rand100])
+# np.savez("fastmri_knee", all_imgs=testset)
+
+# ss = np.load("evaluations/fastMRI_Knee/fastmri_knee.npz")['all_imgs']
+# plt.imshow(ss[1], cmap="gray")
+# plt.show()
+
+# d = np.load("/Users/John/workspace/DMs_Medical/PPN_new/sampling/samples#2_x4_step100_psnr_20.3968_2.6702_ssim_0.4892_0.1807.npz")
+# d=d['arr_0']
+# plt.imshow(d[1][0], cmap="gray")
+# plt.show()

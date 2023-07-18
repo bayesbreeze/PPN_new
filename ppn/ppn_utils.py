@@ -19,7 +19,7 @@ def report_metrics_and_save(args, testset, samples):
 
     save_path = "%s/%s.npz"%(logger.get_dir(), report)
     logger.log("saving to: ", save_path)
-    np.savez(save_path, samples)
+    np.savez(save_path, all_imgs=samples)
 
 # load testset
 def get_testset_and_mask(args,device="cpu"):

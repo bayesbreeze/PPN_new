@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Sampling",
+            "name": "BraTS_Sample",
             "type": "python",
             "request": "launch",
             "module": "scripts.image_sample",
@@ -48,7 +48,16 @@
             ]
         },
         {
-            "name": "Training",
+            "name": "KneeSample",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.image_sample",
+            "justMyCode": true,
+            "args": [ "--work_dir", "/Users/John/workspace/DMs_Medical/PPN_new/working/sampling", "--model_path", "/Users/John/workspace/DMs_Medical/PPN_new/evaluations/fastMRI_Knee/model083000.pt", "--testset_path", "/Users/John/workspace/DMs_Medical/PPN_new/evaluations/fastMRI_Knee/fastmri_knee.npz", "--attention_resolutions", "20,10", "--class_cond", "False", "--learn_sigma", "True", "--noise_schedule", "cosine", "--image_size", "320", "--num_channels", "32","--num_heads", "4", "--num_res_blocks", "2", "--resblock_updown", "True", "--use_fp16", "False",  "--channel_mult", "1,2,2,4,4,4", "--use_ddim", "True", "--num_samples", "2", "--batch_size", "2", "--timestep_respacing", "ddim100", "--acceleration", "4", "--show_progress", "True"
+            ]
+        },
+        {
+            "name": "KneeTrain",
             "type": "python",
             "request": "launch",
             "module": "scripts.image_train",
