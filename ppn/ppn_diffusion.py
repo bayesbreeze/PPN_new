@@ -65,15 +65,8 @@ class PPN_Diffusion(SpacedDiffusion):
     def _ppn_sample(self, model, x, t, projector):
         x_0 = self.p_mean_variance(model, x, t)["pred_xstart"] # predictor
         x_0_hat = projector(x_0)
-        x = self.noisor2(x_0_hat, t, x_0)  # new
+        x = self.noisor(x_0_hat, t, x_0)  # new
         return x
 
-
-    def noisor2(self, x_0_hat, t, x_0): # alg 1
-        recip_snr = _extract_into_tensor(self.sqrt_recipm1_alphas_cumprod, t, x_0.shape)
-        x_0_hat += th.randn_like(x_0)*recip_snr**2  # noise version  
-        s1 = (x_0_hat-x_0)/recip_snr 
-
-        alpha_bar_prev = _extract_into_tensor(self.alphas_cumprod_prev, t, x_0.shape)
-        x = th.sqrt(alpha_bar_prev) * x_0_hat + th.sqrt(1-alpha_bar_prev)* s1
-        return x
+    def noiser(self, x_0_hat, t, x_0):
+        return th.sqrt(alpha_bar_prev) * x_0_hat + th.sqrt(1-alpha_bar_prev)* th.randn_like(x_0_hat)
