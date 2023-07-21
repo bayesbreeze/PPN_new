@@ -184,7 +184,7 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         return (img - lower) / (upper - lower)  # Normalize to [0, 1]
 
     def writeImgs(self, imgs, step):
-        imgs_shown = imgs if len(imgs)<16 else imgs[:16] # show the first 16 imagess
+        imgs_shown = imgs if len(imgs)<9 else imgs[:9] # show the first 16 imagess
         imgs_normalized = torch.stack([self.normalize(img) for img in imgs_shown])
         nrow = int(np.ceil(np.sqrt(len(imgs_normalized))))
         img_grid = torchvision.utils.make_grid(imgs_normalized, nrow = nrow) # b c w h
