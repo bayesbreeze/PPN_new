@@ -16,6 +16,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 import torchvision
 import numpy as np
+import torch
 
 DEBUG = 10
 INFO = 20
@@ -178,10 +179,15 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         self.eval_writer.add_scalar('mse', kvs["mse_eval"], kvs["step"]) 
         self.eval_writer.flush()
 
+    def normalize(self, img):
+        lower, upper = torch.quantile(img, 0.01), torch.quantile(img, .99)
+        return (img - lower) / (upper - lower)  # Normalize to [0, 1]
+
     def writeImgs(self, imgs, step):
-        imgs_shown = imgs if len(imgs)<16 else imgs[:16] # show the first 16 images
-        imgs_nomalized = (imgs_shown - imgs_shown.min()) / (imgs_shown.max() - imgs_shown.min()) # normalize
-        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.ceil(np.sqrt(len(imgs_nomalized))))) # b c w h
+        imgs_shown = imgs if len(imgs)<16 else imgs[:16] # show the first 16 imagess
+        imgs_normalized = torch.stack([self.normalize(img) for img in imgs_shown])
+        nrow = int(np.ceil(np.sqrt(len(imgs_normalized))))
+        img_grid = torchvision.utils.make_grid(imgs_normalized, nrow = nrow) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
         np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs)
