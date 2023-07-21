@@ -190,7 +190,7 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         img_grid = torchvision.utils.make_grid(imgs_normalized, nrow = nrow) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
-        np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs)
+        np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs.detach().cpu())
 
     def close(self):
         if self.train_writer:
