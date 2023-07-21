@@ -17,7 +17,7 @@ from guided_diffusion.script_util import (
     model_and_diffusion_defaults,
     add_dict_to_argparser
 )
-import ppn.ppn_utils as ppn_utils
+import ppn.ppn_sample_utils as ppn_sample_utils
 from ppn.ppn_diffusion import *
 
 def load_model(args, device):
@@ -38,6 +38,8 @@ def main():
     # init
     device = dist_util.dev()
     args = create_argparser().parse_args()
+    assert args.sampleType in ['PPN', 'DDPM', 'DDIM'], "Sample type should be 'PPN', 'DDPM' or 'DDIM'."
+
     dist_util.setup_dist()
     logger.configure(args.work_dir)
 
@@ -46,16 +48,16 @@ def main():
 
     logger.log("sampling...")
     all_samples = []
-    all_testset, mask = ppn_utils.get_testset_and_mask(args, device)
-    for test_batch in ppn_utils.iter_testset(all_testset, args):
-        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress, device=device)
+    all_testset, mask = ppn_sample_utils.get_testset_and_mask(args, device)
+    for test_batch in ppn_sample_utils.iter_testset(all_testset, args):
+        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress, device=device, sampleType=args.sampleType)
         all_samples.extend([sample.cpu()])
 
     logger.log("sampling complete")
     all_samples = th.cat(all_samples, dim=0)  #np.concatenate(all_samples, axis=0)
 
     args.num_timesteps = diffusion.num_timesteps
-    ppn_utils.report_metrics_and_save(args, all_testset, all_samples) # psnr and ssim
+    ppn_sample_utils.report_metrics_and_save(args, all_testset, all_samples) # psnr and ssim
 
 
 def create_argparser():
@@ -69,7 +71,8 @@ def create_argparser():
         testset_path="",
         acceleration=4,
         show_progress=False,
-        num_timesteps=0
+        num_timesteps=0,
+        sampleType="PPN" # PPN, DDIM, DDPM
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

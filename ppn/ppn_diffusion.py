@@ -27,11 +27,9 @@ class PPN_Diffusion(SpacedDiffusion):
 
 
     @th.no_grad()
-    def ppn_loop(self, model, test_imgs, mask, progress=False, device="cpu"):  
-
-        # print(">> [Ablation] type: %s, proj: %s, acc: x%d; parameters: [eta: %d, proj: %d, acc: %d]" 
-        #         % (["PPN", "DDIM", "DDPM"][eta+1], ["x0", "x1"][proj], acc, eta, proj, acc))
-
+    def ppn_loop(self, model, test_imgs, mask, progress=False, device="cpu", sampleType="PPN"):
+        sample_fn = {'PPN':self.ppn, 'DDPM': self.ddpm, 'DDIM':self.ddim} [sampleType]
+        
         img = th.randn_like(test_imgs, device=device)
         test_imgs = test_imgs.to(device)
         known = to_space(test_imgs) # in kspace
@@ -42,7 +40,7 @@ class PPN_Diffusion(SpacedDiffusion):
             indices = tqdm(_indices)
 
         for i in indices:  
-            img = self.ppn(
+            img = sample_fn (
                 model,
                 img,
                 i,
@@ -50,6 +48,15 @@ class PPN_Diffusion(SpacedDiffusion):
                 known
             ) 
         return img, self.num_timesteps
+
+    def ddpm(self, model, x, t, mask, known):
+        ts = th.tensor([t]  * x.shape[0], device=x.device)
+        return self.p_sample(model, x, ts)['sample']
+    
+    def ddim(self, model, x, t, mask, known):
+        ts = th.tensor([t]  * x.shape[0], device=x.device)
+        return self.ddim_sample(model, x, ts)['sample']
+
 
     def ppn(self, model, x, t, mask, known): # 0: x_0, 1: x_t
 
@@ -68,5 +75,5 @@ class PPN_Diffusion(SpacedDiffusion):
         x = self.noisor(x_0_hat, t, x_0)  # new
         return x
 
-    def noiser(self, x_0_hat, t, x_0):
+    def noisor(self, x_0_hat, t, x_0):
         return th.sqrt(alpha_bar_prev) * x_0_hat + th.sqrt(1-alpha_bar_prev)* th.randn_like(x_0_hat)

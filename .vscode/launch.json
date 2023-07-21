@@ -36,7 +36,7 @@
                 "--use_ddim",
                 "True",
                 "--num_samples",
-                "5",
+                "3",
                 "--batch_size",
                 "2",
                 "--timestep_respacing",
@@ -44,7 +44,9 @@
                 "--acceleration",
                 "4",
                 "--show_progress",
-                "True"
+                "True",
+                "--sampleType",
+                "DDPM"
             ]
         },
         {
