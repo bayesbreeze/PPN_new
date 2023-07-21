@@ -231,7 +231,7 @@ def logkv_mean(key, val):
     get_current().logkv_mean(key, val)
 
 
-def log_snapshot(samples, step):
+def log_snapshot(samples, step=0):
     get_current().log_imgs(samples, step)
 
 def logkvs(d):

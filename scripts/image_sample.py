@@ -41,7 +41,7 @@ def main():
     assert args.sampleType in ['PPN', 'DDPM', 'DDIM'], "Sample type should be 'PPN', 'DDPM' or 'DDIM'."
 
     dist_util.setup_dist()
-    logger.configure(args.work_dir)
+    logger.configure(args.work_dir, ["stdout", "tensorboard"])
 
     logger.log("creating model and diffusion...")
     model, diffusion = load_model(args, device)
@@ -56,6 +56,7 @@ def main():
     logger.log("sampling complete")
     all_samples = th.cat(all_samples, dim=0)  #np.concatenate(all_samples, axis=0)
 
+    logger.log_snapshot(all_samples)
     args.num_timesteps = diffusion.num_timesteps
     ppn_sample_utils.report_metrics_and_save(args, all_testset, all_samples) # psnr and ssim
 
