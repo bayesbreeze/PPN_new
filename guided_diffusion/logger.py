@@ -179,8 +179,9 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         self.eval_writer.flush()
 
     def writeImgs(self, imgs, step):
-        imgs_nomalized = (imgs - imgs.min()) / (imgs.max() - imgs.min()) # normalize
-        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.ceil(np.sqrt(len(imgs))))) # b c w h
+        imgs_shown = imgs if len(imgs)<16 else imgs[:16] # show the first 16 images
+        imgs_nomalized = (imgs_shown - imgs_shown.min()) / (imgs_shown.max() - imgs_shown.min()) # normalize
+        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.ceil(np.sqrt(len(imgs_nomalized))))) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
         np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs)
