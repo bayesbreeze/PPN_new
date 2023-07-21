@@ -180,7 +180,7 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
 
     def writeImgs(self, imgs, step):
         imgs_nomalized = (imgs - imgs.min()) / (imgs.max() - imgs.min()) # normalize
-        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.sqrt(len(imgs)))) # b c w h
+        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.ceil(np.sqrt(len(imgs))))) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
         np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs)
