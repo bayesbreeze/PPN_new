@@ -15,6 +15,7 @@ import warnings
 from collections import defaultdict
 from contextlib import contextmanager
 import torchvision
+import numpy as np
 
 DEBUG = 10
 INFO = 20
@@ -159,11 +160,13 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
     """
 
     def __init__(self, dir):
-        os.makedirs(dir, exist_ok=True)
         from torch.utils.tensorboard import SummaryWriter
+        os.makedirs(dir, exist_ok=True)
+
         now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.train_writer = SummaryWriter(os.path.join(osp.abspath(dir), "train_%s"%now_str))
-        self.eval_writer = SummaryWriter(os.path.join(osp.abspath(dir), "eval_%s"%now_str))
+        self.dir = os.path.join(osp.abspath(dir), "train_%s"%now_str)
+        self.train_writer = SummaryWriter(self.dir)
+        self.eval_writer = SummaryWriter(self.dir)
 
 
     def writekvs(self, kvs):
@@ -176,9 +179,11 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         self.eval_writer.flush()
 
     def writeImgs(self, imgs, step):
-        img_grid = torchvision.utils.make_grid(imgs) # b c w h
+        imgs_nomalized = (imgs - imgs.min()) / (imgs.max() - imgs.min()) # normalize
+        img_grid = torchvision.utils.make_grid(imgs_nomalized, nrow = int(np.sqrt(len(imgs)))) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
+        np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs)
 
     def close(self):
         if self.train_writer:

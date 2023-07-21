@@ -9,7 +9,7 @@ def prepare_image(d_dict):
     img = d_dict['image']
     img = tf.cast(img, tf.float32) / 255. # each pixel is [0,1]
     img = tf.transpose(img, (2,0,1)) # b w h c => b c w h
-    img = 2 * img - 1.0 
+    # img = 2 * img - 1.0 
     return img
 
 def data_wrapper(ds):
