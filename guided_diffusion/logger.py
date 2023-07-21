@@ -165,9 +165,10 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         os.makedirs(dir, exist_ok=True)
 
         now_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.dir = os.path.join(osp.abspath(dir), "train_%s"%now_str)
-        self.train_writer = SummaryWriter(self.dir)
-        self.eval_writer = SummaryWriter(self.dir)
+        self.train_dir = os.path.join(osp.abspath(dir), "train_%s"%now_str)
+        self.eval_dir = os.path.join(osp.abspath(dir), "eval_%s"%now_str)
+        self.train_writer = SummaryWriter(self.train_dir)
+        self.eval_writer = SummaryWriter(self.eval_dir)
 
 
     def writekvs(self, kvs):
@@ -190,7 +191,7 @@ class TensorBoardOutputFormat(KVWriter, ImgWriter):
         img_grid = torchvision.utils.make_grid(imgs_normalized, nrow = nrow) # b c w h
         self.train_writer.add_image('random samples', img_grid, global_step=step)
         self.train_writer.flush()
-        np.savez(os.path.join(osp.abspath(self.dir), "sample%d"%step), all_imgs=imgs.detach().cpu())
+        np.savez(os.path.join(osp.abspath(self.train_dir), "sample%d"%step), all_imgs=imgs.detach().cpu())
 
     def close(self):
         if self.train_writer:
