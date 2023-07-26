@@ -114,7 +114,7 @@ class TrainLoop:
             self.ddp_model = self.model
 
     def _load_and_sync_parameters(self):
-        resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        resume_checkpoint = find_resume_checkpoint(self.resume_checkpoint) 
 
         if resume_checkpoint:
             self.resume_step = parse_resume_step_from_filename(resume_checkpoint)
@@ -131,7 +131,7 @@ class TrainLoop:
     def _load_ema_parameters(self, rate):
         ema_params = copy.deepcopy(self.mp_trainer.master_params)
 
-        main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        main_checkpoint = find_resume_checkpoint(self.resume_checkpoint)
         ema_checkpoint = find_ema_checkpoint(main_checkpoint, self.resume_step, rate)
         if ema_checkpoint:
             if dist.get_rank() == 0:
@@ -145,7 +145,7 @@ class TrainLoop:
         return ema_params
 
     def _load_optimizer_state(self):
-        main_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
+        main_checkpoint = find_resume_checkpoint(self.resume_checkpoint)
         opt_checkpoint = bf.join(
             bf.dirname(main_checkpoint), f"opt{self.resume_step:06}.pt"
         )
@@ -164,8 +164,8 @@ class TrainLoop:
         g.manual_seed(0)
         noise = th.randn(*shape, generator=g).to(dist_util.dev())
         samples = self.diffusion.p_sample_loop(self.ddp_model, shape, noise) #[4, 1, 320, 320]
-        logger.log_snapshot(samples, self.step)
-        logger.log("snapshot is saved at step: %d" % self.step)
+        logger.log_snapshot(samples, (self.step + self.resume_step))
+        logger.log("snapshot is saved at step: %d" % (self.step + self.resume_step))
         
     def run_loop(self):
         while (
@@ -321,10 +321,24 @@ def get_blob_logdir():
     return logger.get_dir()
 
 
-def find_resume_checkpoint():
+def find_resume_checkpoint(file_or_path):
     # On your infrastructure, you may want to override this to automatically
     # discover the latest checkpoint on your blob storage, etc.
-    return None
+    if file_or_path and os.path.exists(file_or_path) and os.path.isdir(file_or_path):
+        files = os.listdir(file_or_path)
+        valid_files = [file for file in files if file.startswith("model") and file.endswith(".pt")]
+        if not valid_files:
+            return None  # No valid checkpoints found in the folder
+        
+        # Extract the step numbers from the filenames and convert them to integers
+        step_file_dict = {int(file.split("model")[1].split(".pt")[0]):file for file in valid_files}
+
+        # Find the file with the largest step number
+        latest = step_file_dict[max(step_file_dict.keys())]
+
+        return os.path.join(file_or_path, latest)
+
+    return file_or_path
 
 
 def find_ema_checkpoint(main_checkpoint, step, rate):

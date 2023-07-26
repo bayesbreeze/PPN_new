@@ -1,15 +1,19 @@
 #!/bin/bash
-#SBATCH --partition=vgpu
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -c 1
+#SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --nodes=1
-#SBATCH --output=working/sample_%j.out
+#SBATCH --mem=50000
 #SBATCH --job-name=sample
+#SBATCH -o working/sample_%j.out
+#SBATCH -e working/sample_err_%j.out
 
+source /clusterdata/uqwjian7/.bashrc
 conda activate adm
 
-ROOT_DIR="/home/Student/s4623598/weijiang/_Miccai/PPN_new"
+ROOT_DIR="/clusterdata/uqwjian7/PPN_new"
 cd $ROOT_DIR
-
 
 function sample_BraTS_random {
         echo "sample number: $1"
@@ -28,8 +32,6 @@ function sample_BraTS_random {
         echo "--------------------------------------------"
         eval $cmd
 }
-
-
 
 function sample_BraTS {
         echo "sample number: $1"
@@ -50,7 +52,7 @@ function sample_BraTS {
 
 num=30
 batch=16
-step=100
+step=200
 for acc in 4 
 do
         echo "======$acc======="

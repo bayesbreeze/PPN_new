@@ -50,6 +50,16 @@
             ]
         },
         {
+            "name": "BraTS_Train",
+            "type": "python",
+            "request": "launch",
+            "module": "scripts.image_train",
+            "justMyCode": true,
+            "args": ["--work_dir", "/clusterdata/uqwjian7/PPN_new/working/trainBTS1", "--dataset_name", "brats", "--learn_sigma", "True", "--noise_schedule", "cosine", "--image_size", "240", "--num_channels", "32", "--num_res_blocks", "3", "--channel_mult", "1,2,2,4,4", "--attention_resolutions", "30", "--diffusion_steps", "1000", "--lr", "2e-4", "--log_interval", "100", "--keep_checkpoint_num", "20", "--snapshot_num", "9", "--save_interval", "10000", "--batch_size", "16", "--use_fp16", "False", "--resume_checkpoint", "/clusterdata/uqwjian7/PPN_new/working/trainBTS1"
+            ]
+
+        },
+        {
             "name": "KneeSample",
             "type": "python",
             "request": "launch",
