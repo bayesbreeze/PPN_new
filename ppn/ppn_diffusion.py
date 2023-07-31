@@ -21,44 +21,60 @@ import json
 class PPN_Diffusion(SpacedDiffusion):
 
     def __init__(self, use_timesteps, **kwargs):
-        # self.common_param = kwargs.pop('common_param')
-        # self.gamma = self.common_param.gamma
         super().__init__(use_timesteps, **kwargs)
 
 
     @th.no_grad()
-    def ppn_loop(self, model, test_imgs, mask, progress=False, device="cpu", sampleType="PPN"):
-        sample_fn = {'PPN':self.ppn, 'DDPM': self.ddpm, 'DDIM':self.ddim} [sampleType]
-        
-        img = th.randn_like(test_imgs, device=device)
-        test_imgs = test_imgs.to(device)
-        known = to_space(test_imgs) # in kspace
+    def ppn_loop(self, imgs, kspaces, sens, mask, model,
+                progress=False, device="cpu", sampleType="PPN", mixpercent=0.0):
 
+        sample_fn = {
+                    'PPN':self.ppn, 'DDPM': self.ddpm, 'DDIM':self.ddim,
+                    'real':self.ppn, 'complex': self.ppn_complex, 'multicoil':self.ppn_multicoil
+                } [sampleType]
+        
+        print("Sampling type: ", sampleType)
+
+        imgs = th.from_numpy(imgs).to(device)
+        mask = mask.to(device)
+
+        if sampleType == "multicoil":
+            sens = th.from_numpy(sens).to(device)
+            known = th.from_numpy(kspaces).to(device) 
+            known = known * mask
+            mixstepsize = int(self.num_timesteps * mixpercent) 
+        else:
+            known = to_space(imgs) * mask # in kspace
+            mixstepsize = 0
+            
         _indices = list(range(self.num_timesteps))[::-1]
         if progress:
             from tqdm.auto import tqdm
             indices = tqdm(_indices)
-
+        
+        x = th.randn_like(imgs, device=device)
         for i in indices:  
-            img = sample_fn (
+            x = sample_fn (
                 model,
-                img,
+                x,
                 i,
                 mask,
-                known
+                known,
+                sens,
+                mixstepsize
             ) 
-        return img, self.num_timesteps
+        return x, self.num_timesteps
 
-    def ddpm(self, model, x, t, mask, known):
-        ts = th.tensor([t]  * x.shape[0], device=x.device)
-        return self.p_sample(model, x, ts)['sample']
-    
-    def ddim(self, model, x, t, mask, known):
-        ts = th.tensor([t]  * x.shape[0], device=x.device)
-        return self.ddim_sample(model, x, ts)['sample']
+    def ppn_multicoil(self, model, x, t, mask, known, sens, mixstepsize):
+        # multiple condition
 
+        # combine condition
+        pass
 
-    def ppn(self, model, x, t, mask, known): # 0: x_0, 1: x_t
+    def ppn_complex(self, model, x, t, mask, known, sens=None, mixstepsize=0):
+        pass
+
+    def ppn(self, model, x, t, mask, known, sens=None, mixstepsize=0): # 0: x_0, 1: x_t
 
         ts = th.tensor([t]  * x.shape[0], device=x.device)
 
@@ -77,3 +93,13 @@ class PPN_Diffusion(SpacedDiffusion):
 
     def noisor(self, x_0_hat, t, x_0):
         return th.sqrt(alpha_bar_prev) * x_0_hat + th.sqrt(1-alpha_bar_prev)* th.randn_like(x_0_hat)
+
+
+    def ddpm(self, model, x, t, mask, known, sens=None, mixstepsize=0):
+        ts = th.tensor([t]  * x.shape[0], device=x.device)
+        return self.p_sample(model, x, ts)['sample']
+    
+    def ddim(self, model, x, t, mask, known, sens=None, mixstepsize=0):
+        ts = th.tensor([t]  * x.shape[0], device=x.device)
+        return self.ddim_sample(model, x, ts)['sample']
+

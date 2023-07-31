@@ -19,6 +19,7 @@ from guided_diffusion.script_util import (
 )
 import ppn.ppn_sample_utils as ppn_sample_utils
 from ppn.ppn_diffusion import *
+from functools import partial
 
 def load_model(args, device):
     model, diffusion = create_model_and_diffusion(
@@ -38,7 +39,13 @@ def main():
     # init
     device = dist_util.dev()
     args = create_argparser().parse_args()
-    assert args.sampleType in ['PPN', 'DDPM', 'DDIM'], "Sample type should be 'PPN', 'DDPM' or 'DDIM'."
+
+    mixpercent=0
+    if args.sampleType.startswith("multicoil"):
+        mixpercent = float(args.sampleType.split("_")[1])
+        args.sampleType="multicoil"
+
+    assert args.sampleType in ['PPN', 'DDPM', 'DDIM', 'real', 'complex', 'multicoil'], "Sample type is not correct"
 
     dist_util.setup_dist()
     logger.configure(args.work_dir, ["stdout", "tensorboard"])
@@ -48,9 +55,12 @@ def main():
 
     logger.log("sampling...")
     all_samples = []
-    all_testset, mask = ppn_sample_utils.get_testset_and_mask(args, device)
-    for test_batch in ppn_sample_utils.iter_testset(all_testset, args):
-        sample, steps = diffusion.ppn_loop(model, test_batch, mask, args.show_progress, device=device, sampleType=args.sampleType)
+    all_imgs, all_kspaces, all_sens, mask = ppn_sample_utils.get_testset_and_mask(args)
+    ppn_loop = partial(diffusion.ppn_loop, model=model, mask=mask, progress=args.show_progress, 
+                device=device, sampleType=args.sampleType, mixpercent=mixpercent)
+
+    for imgs, kspaces, sens in ppn_sample_utils.iter_testset(args, all_imgs, all_kspaces, all_sens):
+        sample, steps = ppn_loop(imgs, kspaces, sens)
         all_samples.extend([sample.cpu()])
 
     logger.log("sampling complete")
@@ -58,7 +68,7 @@ def main():
 
     logger.log_snapshot(all_samples)
     args.num_timesteps = diffusion.num_timesteps
-    ppn_sample_utils.report_metrics_and_save(args, all_testset, all_samples) # psnr and ssim
+    ppn_sample_utils.report_metrics_and_save(args, all_imgs, all_samples) # psnr and ssim
 
 
 def create_argparser():
@@ -73,7 +83,8 @@ def create_argparser():
         acceleration=4,
         show_progress=False,
         num_timesteps=0,
-        sampleType="PPN" # PPN, DDIM, DDPM
+        sampleType="PPN", # PPN, DDIM, DDPM
+        sensmap_path=""
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()

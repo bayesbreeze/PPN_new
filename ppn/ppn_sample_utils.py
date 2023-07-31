@@ -22,22 +22,36 @@ def report_metrics_and_save(args, testset, samples):
     np.savez(save_path, all_imgs=samples)
 
 # load testset
-def get_testset_and_mask(args,device="cpu"):
-    imgs = np.load(args.testset_path)['all_imgs']
+def get_testset_and_mask(args):
+    ds = np.load(args.testset_path)
+    imgs = ds['all_imgs']
     imgs = imgs[:min(len(imgs), args.num_samples)] # limit sample number
-    imgs = th.from_numpy(imgs[:,None,...]).float() # (1000, 1, 240, 240) b c w h
+    imgs = imgs[:,None,...] # (1000, 1, 240, 240) b c w h
     imgs = imgs / 255.0   # convert to [0,1]
-    mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration),device=device)
-    return imgs, mask
+    # create sampling mask
+    mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration))
+    mask = mask[None, None]  # (1,1,w,h)
 
-def iter_testset(imgs, args):
-    num_batches = int(np.ceil(len(imgs) / args.batch_size))
+    kspace, sens =  None, None
+    # load kspace
+    if 'kspace' in ds:
+        kspace = ds['kspace']
+        # load sensitivity mask
+        sens = ds['sens']
+    return imgs, kspace, sens, mask
+
+def iter_testset(args, all_imgs, all_kspaces, all_sens):
+    num_batches = int(np.ceil(len(all_imgs) / args.batch_size))
+    isMultiCoil = args.sampleType=="multicoil"
     for batch in range(num_batches):
-        current_batch = imgs[batch * args.batch_size:
-                            min((batch + 1) * args.batch_size, len(imgs))]
-        yield current_batch
+        start=batch * args.batch_size
+        end=min((batch + 1) * args.batch_size, len(all_imgs))
+        imgs = all_imgs[start:end]
+        kspaces = all_kspaces[start:end] if isMultiCoil else None
+        sens = all_sens[start:end] if isMultiCoil  else None
+        yield imgs, kspaces, sens
 
-def get_cartesian_mask(size, n_keep=30, device="cpu"):
+def get_cartesian_mask(size, n_keep=30):
     # shape [Tuple]: (H, W)
     center_fraction = n_keep / 1000
     acceleration = size / n_keep
@@ -46,7 +60,7 @@ def get_cartesian_mask(size, n_keep=30, device="cpu"):
     num_low_freqs = int(round(num_cols * center_fraction))
 
     # create the mask
-    mask = th.zeros((num_rows, num_cols), dtype=th.float32, device=device)
+    mask = th.zeros((num_rows, num_cols), dtype=th.float32)
     pad = (num_cols - num_low_freqs + 1) // 2
     mask[:, pad: pad + num_low_freqs] = True
 
