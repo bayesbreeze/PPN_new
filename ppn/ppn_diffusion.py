@@ -25,7 +25,7 @@ class PPN_Diffusion(SpacedDiffusion):
 
 
     @th.no_grad()
-    def ppn_loop(self, imgs, kspaces, sens, mask, model,
+    def ppn_loop(self, kspaces, sens, mask, model,
                 progress=False, device="cpu", sampleType="PPN", mixpercent=0.0):
 
         sample_fn = {
@@ -35,31 +35,29 @@ class PPN_Diffusion(SpacedDiffusion):
         
         print("Sampling type: ", sampleType)
 
-        imgs = th.from_numpy(imgs).to(device)
-        mask = mask.to(device)
-
         if sampleType == "multicoil":
-            sens = th.from_numpy(sens).to(device)
-            known = th.from_numpy(kspaces).to(device) 
-            known = known * mask
+            sens = sens.to(device)
             mixstepsize = int(self.num_timesteps * mixpercent) 
         else:
-            known = to_space(imgs) * mask # in kspace
+            sens = None
             mixstepsize = 0
-            
+
+        mask = mask.to(device)
+        knowns = kspaces.to(device) * mask
+        x = th.randn_like(knowns.real, device=device)
+    
         _indices = list(range(self.num_timesteps))[::-1]
         if progress:
             from tqdm.auto import tqdm
             indices = tqdm(_indices)
         
-        x = th.randn_like(imgs, device=device)
         for i in indices:  
             x = sample_fn (
                 model,
                 x,
                 i,
                 mask,
-                known,
+                knowns,
                 sens,
                 mixstepsize
             ) 
@@ -67,7 +65,7 @@ class PPN_Diffusion(SpacedDiffusion):
 
     def ppn_multicoil(self, model, x, t, mask, known, sens, mixstepsize):
         # multiple condition
-
+        
         # combine condition
         pass
 

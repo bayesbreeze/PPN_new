@@ -46,10 +46,13 @@ def iter_testset(args, all_imgs, all_kspaces, all_sens):
     for batch in range(num_batches):
         start=batch * args.batch_size
         end=min((batch + 1) * args.batch_size, len(all_imgs))
-        imgs = all_imgs[start:end]
-        kspaces = all_kspaces[start:end] if isMultiCoil else None
-        sens = all_sens[start:end] if isMultiCoil  else None
-        yield imgs, kspaces, sens
+        if isMultiCoil:
+            kspaces = th.from_numpy(all_kspaces[start:end])
+            sens = th.from_numpy(all_sens[start:end])
+        else:
+            kspaces = to_space(th.from_numpy(all_imgs[start:end]))
+            sens = None
+        yield kspaces, sens
 
 def get_cartesian_mask(size, n_keep=30):
     # shape [Tuple]: (H, W)
@@ -99,8 +102,8 @@ def kspace_to_image(kspace, axes):
       dim=axes
   ) * shape
 
-to_space = lambda x: get_kspace(x, (2, 3)) # x: b c w h
-from_space = lambda x: kspace_to_image(x, (2, 3)).real
+to_space = lambda x: get_kspace(x, (-2, -1)) # x: b c w h
+from_space = lambda x: kspace_to_image(x, (-2, -1)).real
 
 def get_noisy_known(known, alpha, beta):
     z = th.rand_like(known)

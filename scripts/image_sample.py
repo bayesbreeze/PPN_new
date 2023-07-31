@@ -59,8 +59,8 @@ def main():
     ppn_loop = partial(diffusion.ppn_loop, model=model, mask=mask, progress=args.show_progress, 
                 device=device, sampleType=args.sampleType, mixpercent=mixpercent)
 
-    for imgs, kspaces, sens in ppn_sample_utils.iter_testset(args, all_imgs, all_kspaces, all_sens):
-        sample, steps = ppn_loop(imgs, kspaces, sens)
+    for kspaces, sens in ppn_sample_utils.iter_testset(args, all_imgs, all_kspaces, all_sens):
+        sample, steps = ppn_loop(kspaces, sens)
         all_samples.extend([sample.cpu()])
 
     logger.log("sampling complete")
