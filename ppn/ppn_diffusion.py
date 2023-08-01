@@ -66,6 +66,8 @@ class PPN_Diffusion(SpacedDiffusion):
 
         if sampleType == "multicoil":
             x = to_mc(x)
+            x = root_sum_of_squares(x, dim=1)[:,None] # b c w h
+
         return x, self.num_timesteps
 
     def A(self, x):

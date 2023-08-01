@@ -66,9 +66,13 @@ def main():
     logger.log("sampling complete")
     all_samples = th.cat(all_samples, dim=0)  #np.concatenate(all_samples, axis=0)
 
+    if args.sampleType == 'multicoil':
+        all_samples = np.abs(all_samples)
+    
     logger.log_snapshot(all_samples)
     args.num_timesteps = diffusion.num_timesteps
-    ppn_sample_utils.report_metrics_and_save(args, all_imgs, all_samples) # psnr and ssim
+    # TODO test if the compare usig complex??
+    ppn_sample_utils.report_metrics_and_save(args, th.from_numpy(all_imgs).float(), all_samples) # psnr and ssim
 
 
 def create_argparser():
