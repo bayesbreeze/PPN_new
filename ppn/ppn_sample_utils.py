@@ -104,7 +104,7 @@ def kspace_to_image(kspace, axes):
   ) * shape
 
 to_space = lambda x: get_kspace(x, (-2, -1)) # x: b c w h
-from_space = lambda x: kspace_to_image(x, (-2, -1)).real
+from_space = lambda x: kspace_to_image(x, (-2, -1))
 
 to_mc = lambda x: th.view_as_complex(rearrange(x, '(b c ch) 1 h w -> b c h w ch', c=15, ch=2).contiguous())
 from_mc = lambda x: rearrange(th.view_as_real(x), 'b c h w ch -> (b c ch) 1 h w') 
@@ -116,18 +116,9 @@ def get_noisy_known(known, alpha, beta):
 def merge_known_with_mask(x_space, known, mask, coeff=1.):
     return known * mask * coeff + x_space * (1. - mask * coeff)
 
-
-
-def root_sum_of_squares(data, dim=0):
-    """
-    Compute the Root Sum of Squares (RSS) transform along a given dimension of a tensor.
-    Args:
-        data (torch.Tensor): The input tensor
-        dim (int): The dimensions along which to apply the RSS transform
-    Returns:
-        torch.Tensor: The RSS value
-    """
-    return th.sqrt((data ** 2).sum(dim))
+def rss_complex(d, axis=-3): 
+    dd = np.stack([d.real, d.imag], axis=-1)
+    return np.sqrt((dd**2).sum(axis=-1).sum(axis=axis))
 
 
 ### test
