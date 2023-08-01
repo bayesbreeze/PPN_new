@@ -3,6 +3,7 @@ import numpy as np
 import torch as th
 import piq
 from guided_diffusion import dist_util, logger
+from einops import rearrange
 
 
 # using pytorch tensor
@@ -47,10 +48,10 @@ def iter_testset(args, all_imgs, all_kspaces, all_sens):
         start=batch * args.batch_size
         end=min((batch + 1) * args.batch_size, len(all_imgs))
         if isMultiCoil:
-            kspaces = th.from_numpy(all_kspaces[start:end])
-            sens = th.from_numpy(all_sens[start:end])
+            kspaces = th.from_numpy(all_kspaces[start:end]).to(dtype=th.complex64)
+            sens = th.from_numpy(all_sens[start:end]).to(dtype=th.complex64)
         else:
-            kspaces = to_space(th.from_numpy(all_imgs[start:end]))
+            kspaces = to_space(th.from_numpy(all_imgs[start:end]).float())
             sens = None
         yield kspaces, sens
 
@@ -104,6 +105,9 @@ def kspace_to_image(kspace, axes):
 
 to_space = lambda x: get_kspace(x, (-2, -1)) # x: b c w h
 from_space = lambda x: kspace_to_image(x, (-2, -1)).real
+
+to_mc = lambda x: th.view_as_complex(rearrange(x, '(b c ch) 1 h w -> b c h w ch', c=15, ch=2).contiguous())
+from_mc = lambda x: rearrange(th.view_as_real(x), 'b c h w ch -> (b c ch) 1 h w') 
 
 def get_noisy_known(known, alpha, beta):
     z = th.rand_like(known)

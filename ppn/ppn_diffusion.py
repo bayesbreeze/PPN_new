@@ -33,29 +33,27 @@ class PPN_Diffusion(SpacedDiffusion):
                     'real':self.ppn, 'complex': self.ppn_complex, 'multicoil':self.ppn_multicoil
                 } [sampleType]
             
-        self.isComplex = sampleType in ['complex', 'multicoil']
+        # self.isComplex = sampleType in ['complex', 'multicoil']
         
         print("Sampling type: ", sampleType)
-
-        if sampleType == "multicoil":
-            self.sens = sens.to(device)
-            self.mixstepsize = int(self.num_timesteps * mixpercent) 
-        else:
-            self.sens = None
-            self.mixstepsize = 0
 
         self.mask = mask.to(device)
         self.knowns = kspaces.to(device) * mask
         x = th.randn_like(self.knowns.real, device=device)
-        # if self.isComplex:
-        #     x = th.randn_like(self.knowns, device=device)
-        # else:
-            
-    
+
+        if sampleType == "multicoil":
+            x = th.randn_like(self.knowns, device=device) 
+            x = from_mc(x)
+            self.sens = sens.to(device)
+            self.mixstepsize = int(self.num_timesteps * mixpercent) 
+        else:
+            x = th.randn_like(self.knowns.real, device=device)
+            self.sens = None
+            self.mixstepsize = 0
+
         _indices = list(range(self.num_timesteps))[::-1]
         if progress:
-            from tqdm.auto import tqdm
-            indices = tqdm(_indices)
+            indices = tqdm(_indices) 
         
         for i in indices:  
             x = sample_fn (
@@ -63,25 +61,30 @@ class PPN_Diffusion(SpacedDiffusion):
                 x,
                 i
             ) 
+
+        if sampleType == "multicoil":
+            x = to_mc(x)
         return x, self.num_timesteps
 
     def A(self, x):
-        return self.mask * fft2_m(self.sens * x)
+        return self.mask * to_space(self.sens * x)
 
     def A_H(self, x):  # Hermitian transpose
-        return torch.sum(torch.conj(self.sens) * ifft2_m(x * self.mask), dim=1).unsqueeze(dim=1)
+        return th.sum(th.conj(self.sens) * from_space(x * self.mask), dim=1).unsqueeze(dim=1)
 
     def kaczmarz(self, x, y,lamb=1.0): #[1, 15, 320, 320])
         x = x + lamb * self.A_H(y - self.A(x)) # [1, 15, 320, 320]) + [1, 1, 320, 320])
         return x
 
     def ppn_multicoil(self, model, x, t):
-        # multiple condition
+        # parallel condition
         x = self.ppn(model, x, t)
         # combine condition
         if t % self.mixstepsize == 0:
             lamb = 1.0 # lamb_schedule.get_current_lambda(t)
-            x = self.kaczmarz(x, self.knowns, self.sens, self.mask, lamb=lamb)
+            x = to_mc(x)
+            x = self.kaczmarz(x, self.knowns, lamb=lamb)
+            x = from_mc(x)
 
         return x
 
