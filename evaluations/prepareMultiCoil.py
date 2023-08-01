@@ -55,13 +55,14 @@ from_space = lambda ks: kspace_to_image_np(ks, axes=(-2,-1))
 
 def rss_complex(d, axis=-3): 
     dd = np.stack([d.real, d.imag], axis=-1)
-    return np.sqrt((dd**2).sum(axis=-1).sum(axis=axis))
+    rt = np.sqrt((dd**2).sum(axis=-1).sum(axis=axis))
+    return np.expand_dims(rt, axis=axis)
 
 
 def print_All(imgs):
     fig, axs = plt.subplots(3,3,figsize=(10,10))
     for (img, ax) in zip(imgs, axs.flat):
-        ax.imshow(np.abs(img),cmap="gray")
+        ax.imshow(np.abs(img).squeeze(),cmap="gray")
         ax.axis('off')
 
     plt.tight_layout()
@@ -77,8 +78,9 @@ imgs_kspace=from_space(ks)
 imgs_cut=cut_center(imgs_kspace)
 imgs_normalized=img_normalize_complex(imgs_cut)
 
-all_imgs=imgs_normalized[15::3]
+all_imgs=imgs_normalized[15::3].astype(np.complex64)
 all_sens=calc_sens(all_imgs) # !!!time consuming
+all_sens=all_sens.astype(np.complex64)
 
 np.savez("testsamples", all_imgs=all_imgs, all_sens=all_sens)
 

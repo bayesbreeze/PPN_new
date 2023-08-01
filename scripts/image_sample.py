@@ -55,24 +55,23 @@ def main():
 
     logger.log("sampling...")
     all_samples = []
-    all_imgs, all_kspaces, all_sens, mask = ppn_sample_utils.get_testset_and_mask(args)
+    all_imgs, all_sens, mask = ppn_sample_utils.get_testset_and_mask(args)
     ppn_loop = partial(diffusion.ppn_loop, model=model, mask=mask, progress=args.show_progress, 
                 device=device, sampleType=args.sampleType, mixpercent=mixpercent)
 
-    for kspaces, sens in ppn_sample_utils.iter_testset(args, all_imgs, all_kspaces, all_sens):
-        sample, steps = ppn_loop(kspaces, sens)
+    for imgs, sens in ppn_sample_utils.iter_testset(args, all_imgs, all_sens):
+        sample, steps = ppn_loop(imgs, sens)
         all_samples.extend([sample.cpu()])
 
     logger.log("sampling complete")
     all_samples = th.cat(all_samples, dim=0)  #np.concatenate(all_samples, axis=0)
 
-    if args.sampleType == 'multicoil':
-        all_samples = np.abs(all_samples)
     
     logger.log_snapshot(all_samples)
     args.num_timesteps = diffusion.num_timesteps
     # TODO test if the compare usig complex??
-    ppn_sample_utils.report_metrics_and_save(args, th.from_numpy(all_imgs).float(), all_samples) # psnr and ssim
+    all_origs = rss_complex(th.from_numpy(all_imgs)) # TODO add support for  single coil
+    ppn_sample_utils.report_metrics_and_save(args, all_origs, all_samples) # psnr and ssim
 
 
 def create_argparser():

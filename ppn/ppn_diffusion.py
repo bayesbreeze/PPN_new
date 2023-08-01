@@ -27,7 +27,7 @@ class PPN_Diffusion(SpacedDiffusion):
 
 
     @th.no_grad()
-    def ppn_loop(self, kspaces, sens, mask, model,
+    def ppn_loop(self, imgs, sens, mask, model,
                 progress=False, device="cpu", sampleType="PPN", mixpercent=0.0):
 
         sample_fn = {
@@ -40,8 +40,7 @@ class PPN_Diffusion(SpacedDiffusion):
         print("Sampling type: ", sampleType)
 
         self.mask = mask.to(device)
-        self.knowns = kspaces.to(device) * mask
-        x = th.randn_like(self.knowns.real, device=device)
+        self.knowns =  to_space(imgs).to(device) * self.mask
 
         if sampleType == "multicoil":
             x = th.randn_like(self.knowns, device=device) 
@@ -66,7 +65,7 @@ class PPN_Diffusion(SpacedDiffusion):
 
         if sampleType == "multicoil":
             x = to_mc(x)
-            x = root_sum_of_squares(x, dim=1)[:,None] # b c w h
+            x = rss_complex(x) # b c w h
 
         return x, self.num_timesteps
 
@@ -100,9 +99,10 @@ class PPN_Diffusion(SpacedDiffusion):
         ts = th.tensor([t]  * x.shape[0], device=x.device)
 
         def projector(x):
+            x = to_mc(x)
             x_space = to_space(x)
             x_space = merge_known_with_mask(x_space, self.knowns, self.mask)
-            return from_space(x_space)
+            return from_mc(from_space(x_space))
 
         return self._ppn_sample(model, x, ts, projector=projector)
 

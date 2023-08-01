@@ -8,6 +8,8 @@ from einops import rearrange
 
 # using pytorch tensor
 def report_metrics_and_save(args, testset, samples):
+    # TODO normalization is not correct for multicoil
+    testset = th.clamp(testset, 0., 1.)
     samples = th.clamp(samples, 0., 1.)
     psnr = np.array([piq.psnr(smp[None, ...], tgt[None, ...], data_range=1.).item() 
                 for tgt, smp in zip(testset, samples)])
@@ -25,35 +27,35 @@ def report_metrics_and_save(args, testset, samples):
 # load testset
 def get_testset_and_mask(args):
     ds = np.load(args.testset_path)
+    sens=None
+    if 'all_sens' in ds:
+        sens = ds['all_sens']
+        sens = sens[:min(len(sens), args.num_samples)].astype(np.complex64)
+
     imgs = ds['all_imgs']
-    imgs = imgs[:min(len(imgs), args.num_samples)] # limit sample number
-    imgs = imgs[:,None,...] # (1000, 1, 240, 240) b c w h
-    imgs = imgs / 255.0   # convert to [0,1]
+    imgs = imgs[:min(len(imgs), args.num_samples)].astype(np.complex64) # limit sample number
+    # imgs = imgs[:,None,...] # (1000, 1, 240, 240) b c w h
+    # imgs = imgs / 255.0   # convert to [0,1]  # TODO brats is uint8, multi-coil is float
     # create sampling mask
     mask = get_cartesian_mask(args.image_size, int(args.image_size/args.acceleration))
     mask = mask[None, None]  # (1,1,w,h)
+    
 
-    kspace, sens =  None, None
-    # load kspace
-    if 'kspace' in ds:
-        kspace = ds['kspace']
-        # load sensitivity mask
-        sens = ds['sens']
-    return imgs, kspace, sens, mask
+    return imgs, sens, mask
 
-def iter_testset(args, all_imgs, all_kspaces, all_sens):
+def iter_testset(args, all_imgs, all_sens):
     num_batches = int(np.ceil(len(all_imgs) / args.batch_size))
     isMultiCoil = args.sampleType=="multicoil"
     for batch in range(num_batches):
         start=batch * args.batch_size
         end=min((batch + 1) * args.batch_size, len(all_imgs))
         if isMultiCoil:
-            kspaces = th.from_numpy(all_kspaces[start:end]).to(dtype=th.complex64)
+            imgs = th.from_numpy(all_imgs[start:end]).to(dtype=th.complex64)
             sens = th.from_numpy(all_sens[start:end]).to(dtype=th.complex64)
         else:
-            kspaces = to_space(th.from_numpy(all_imgs[start:end]).float())
+            imgs = th.from_numpy(all_imgs[start:end]).float()
             sens = None
-        yield kspaces, sens
+        yield imgs, sens
 
 def get_cartesian_mask(size, n_keep=30):
     # shape [Tuple]: (H, W)
@@ -117,8 +119,9 @@ def merge_known_with_mask(x_space, known, mask, coeff=1.):
     return known * mask * coeff + x_space * (1. - mask * coeff)
 
 def rss_complex(d, axis=-3): 
-    dd = np.stack([d.real, d.imag], axis=-1)
-    return np.sqrt((dd**2).sum(axis=-1).sum(axis=axis))
+    dd = th.stack([d.real, d.imag], dim=-1)
+    return th.sqrt((dd**2).sum(dim=-1).sum(dim=axis)).unsqueeze(axis)
+
 
 
 ### test
